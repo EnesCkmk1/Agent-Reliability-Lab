@@ -1,0 +1,25 @@
+{
+  "name": "agent-reliability-lab",
+  "version": "0.1.0",
+  "description": "Reproducible benchmarking for AI agent reliability, latency, cost, and recovery.",
+  "type": "module",
+  "bin": {
+    "arl": "src/cli.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "arl": "node src/cli.ts",
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "benchmark": "node src/cli.ts run --dataset datasets/baseline.json --agent scripted --profile fixtures/scripted-mixed.json",
+    "benchmark:correct": "node src/cli.ts run --dataset datasets/baseline.json --agent scripted --profile fixtures/scripted-correct.json"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  },
+  "license": "MIT"
+}

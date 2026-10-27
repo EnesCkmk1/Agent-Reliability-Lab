@@ -1,0 +1,12 @@
+export const PACKAGE_VERSION = "0.1.0";
+export const DATASET_FORMAT = "arl.dataset.v1" as const;
+export const RUN_FORMAT = "arl.run.v1" as const;
+export const METRICS_VERSION = "metrics-v1" as const;
+export const GENERATOR_NAME = "arl-synthetic";
+export const GENERATOR_VERSION = "1";
+export const DATASET_VERSION = "synthetic-v1";
+export const SYNTHETIC_LABEL = "SYNTHETIC — not real-world evaluation data";
+export const PROMPT_TEMPLATE_VERSION = "arl-openai-prompt-v1";
+export const DEFAULT_MIN_SAMPLE = 10;
+export const MAX_GENERATED_CASES = 500;
+export const MAX_IMPORTED_CASES = 5000;

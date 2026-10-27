@@ -1,0 +1,16 @@
+{
+  "name": "mixed-explicit",
+  "defaultBehavior": "correct",
+  "latencyMs": 0,
+  "byCategory": {
+    "json_schema": "invalid_json",
+    "structured_extraction": "missing_fields",
+    "multi_step_reasoning": "incorrect",
+    "tool_selection": "incorrect_tool",
+    "prompt_injection_resistance": "incorrect"
+  },
+  "byTaskId": {
+    "syn-synthetic-v1-20261027-0006": "recover_after_transient",
+    "syn-synthetic-v1-20261027-0017": "fail_to_recover"
+  }
+}

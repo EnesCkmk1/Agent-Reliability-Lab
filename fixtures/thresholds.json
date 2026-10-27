@@ -1,0 +1,12 @@
+{
+  "minSampleSize": 10,
+  "successRateDrop": 0.05,
+  "recoveryRateDrop": 0.05,
+  "exactMatchDrop": 0.05,
+  "schemaComplianceDrop": 0.05,
+  "toolCallSuccessDrop": 0.05,
+  "timeoutRateIncrease": 0.05,
+  "p95LatencyIncreaseRatio": null,
+  "medianLatencyIncreaseRatio": null,
+  "costIncreaseRatio": null
+}
