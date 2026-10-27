@@ -186,6 +186,30 @@ function mono(value, extra) {
   return span;
 }
 
+function breakableId(value) {
+  var span = el('span', { class: 'mono' });
+  if (value == null || value === '') {
+    span.textContent = 'n/a';
+    return span;
+  }
+  var text = String(value);
+  span.title = text;
+  var parts = text.split('_');
+  parts.forEach(function (part, index) {
+    if (index) span.appendChild(document.createTextNode('_'));
+    var stamp = part.match(/^(\d{8})(T.+)$/);
+    if (stamp) {
+      span.appendChild(document.createTextNode(stamp[1]));
+      span.appendChild(document.createElement('wbr'));
+      span.appendChild(document.createTextNode(stamp[2]));
+    } else {
+      span.appendChild(document.createTextNode(part));
+    }
+    if (index < parts.length - 1) span.appendChild(document.createElement('wbr'));
+  });
+  return span;
+}
+
 function badge(text, kind) {
   return el('span', { class: 'badge ' + kind }, text);
 }
@@ -261,9 +285,37 @@ function faultsNode(faults) {
   if (Array.isArray(faults)) {
     if (!faults.length) return paragraph('None');
     if (faults.every(function (item) { return typeof item === 'string'; })) return stringList(faults);
+    if (faults.every(function (item) { return item && typeof item === 'object' && !Array.isArray(item); })) {
+      return stringList(faults.map(function (item) {
+        var bits = [];
+        if (item.id != null) bits.push(String(item.id));
+        if (item.kind != null) bits.push(String(item.kind));
+        if (item.target != null) bits.push(String(item.target));
+        var line = bits.join(' · ');
+        if (item.params != null) line += (line ? ' · ' : '') + stringify(item.params);
+        return line || stringify(item);
+      }));
+    }
     return jsonPre(faults);
   }
   return jsonPre(faults);
+}
+
+function formatGenerator(value) {
+  if (value == null || value === '') return 'n/a';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (typeof value.generator === 'string') {
+      return value.version == null || value.version === '' ? value.generator : value.generator + ' ' + value.version;
+    }
+    if (value.name != null || value.version != null) {
+      var name = value.name == null ? '' : String(value.name);
+      var version = value.version == null || value.version === '' ? '' : String(value.version);
+      var text = (name + (version ? ' ' + version : '')).trim();
+      if (text) return text;
+    }
+  }
+  return looseText(value);
 }
 
 function pageHeader(title, lede) {
@@ -921,7 +973,7 @@ function runsPage(runs) {
     var tr = el('tr');
     if (run.id != null && run.id !== '') linkRow(tr, '#/runs/' + encodeURIComponent(String(run.id)));
     tr.appendChild(td(timeText(run.startedAt), 'nowrap'));
-    tr.appendChild(td(mono(run.id)));
+    tr.appendChild(td(breakableId(run.id)));
     tr.appendChild(datasetVersionCell(run));
     tr.appendChild(td(agentCell(run)));
     tr.appendChild(td(textOrNa(run.scenarioMode)));
@@ -950,12 +1002,24 @@ function configDetails(config) {
   return details;
 }
 
+function excludedText(excluded) {
+  if (excluded == null || excluded === '') return '';
+  if (typeof excluded === 'number' || typeof excluded === 'string') return 'Excluded ' + excluded + '.';
+  if (typeof excluded === 'object') {
+    return 'Excluded cancelled ' + formatCount(excluded.cancelled)
+      + ', infrastructure_error ' + formatCount(excluded.infrastructure_error)
+      + ', incomplete ' + formatCount(excluded.incomplete) + '.';
+  }
+  return '';
+}
+
 function sampleSummary(sample) {
   if (!sample || typeof sample !== 'object') return null;
   var bits = [];
   if (sample.evaluated != null && sample.total != null) bits.push('Evaluated ' + sample.evaluated + ' of ' + sample.total + '.');
   else if (sample.evaluated != null) bits.push('Evaluated ' + sample.evaluated + '.');
-  if (sample.excluded != null) bits.push('Excluded ' + sample.excluded + '.');
+  var excluded = excludedText(sample.excluded);
+  if (excluded) bits.push(excluded);
   if (sample.minSampleSize != null) bits.push('Minimum sample size ' + sample.minSampleSize + '.');
   if (!bits.length) return null;
   var p = el('p', { class: 'sample-line muted' });
@@ -1003,7 +1067,7 @@ function costCard(metrics) {
   var coverage = metrics.costPerSuccessfulTaskCoverage || {};
   card.appendChild(kv([
     ['Recorded total', formatCost(metrics.estimatedCostUsd ? cost.recordedTotalUsd : null)],
-    ['Mean per run', formatCost(metrics.estimatedCostUsd ? cost.meanPerRunUsd : null)],
+    ['Mean per costed task', formatCost(metrics.estimatedCostUsd ? cost.meanPerRunUsd : null)],
     ['Tasks with cost', metrics.estimatedCostUsd ? formatCount(cost.tasksWithCost) : 'n/a'],
     ['Tasks missing cost', metrics.estimatedCostUsd ? formatCount(cost.tasksMissingCost) : 'n/a'],
     ['Cost per successful task', formatCost(metrics.costPerSuccessfulTaskUsd)],
@@ -1093,6 +1157,14 @@ function toolCallItem(call, index) {
   meta.textContent = 'Duration ' + formatMs(source.durationMs) + ' · Simulated delay ' + formatMs(source.simulatedDelayMs) + ' · Fault ' + textOrNa(source.injectedFaultId);
   li.appendChild(title);
   li.appendChild(meta);
+  if (source.arguments != null) {
+    li.appendChild(el('div', { class: 'tl-meta' }, 'Arguments'));
+    li.appendChild(jsonPre(source.arguments));
+  }
+  if (source.result != null) {
+    li.appendChild(el('div', { class: 'tl-meta' }, 'Result'));
+    li.appendChild(jsonPre(source.result));
+  }
   if (source.error != null && source.error !== '') {
     var err = el('div', { class: 'fail' });
     err.textContent = typeof source.error === 'string' ? source.error : stringify(source.error);
@@ -1119,11 +1191,7 @@ function eventsList(events) {
     var li = el('li');
     li.appendChild(el('span', { class: 'tl-dot', 'aria-hidden': 'true' }));
     li.appendChild(el('div', { class: 'tl-title' }, 'Event ' + (index + 1)));
-    if (typeof event === 'string') {
-      var pre = el('pre', { class: 'text' });
-      pre.textContent = event;
-      li.appendChild(pre);
-    } else li.appendChild(jsonPre(event));
+    li.appendChild(eventBody(event));
     list.appendChild(li);
   });
   return list;
@@ -1286,7 +1354,8 @@ function runPage(run, requestedId) {
     ['Provider', textOrNa(agent.provider)],
     ['Uses answer key', formatBool(agent.usesAnswerKey)],
     ['Deterministic', formatBool(agent.deterministic)],
-    ['Prompt template', textOrNa(agent.promptTemplateVersion)]
+    ['Prompt template', textOrNa(agent.promptTemplateVersion)],
+    ['Prompt template sha256', mono(agent.promptTemplateSha256, 'break')]
   ]));
   agentCard.appendChild(configDetails(agent.config));
 
@@ -1638,6 +1707,26 @@ function filterBar(cases) {
   };
 }
 
+function eventBody(event) {
+  if (typeof event === 'string') {
+    var pre = el('pre', { class: 'text' });
+    pre.textContent = event;
+    return pre;
+  }
+  if (!event || typeof event !== 'object' || Array.isArray(event)) return jsonPre(event);
+  var keys = Object.keys(event);
+  if (!keys.length) return jsonPre(event);
+  var wrap = el('div', { class: 'stack tight' });
+  keys.forEach(function (key) {
+    var line = el('p');
+    var value = event[key];
+    var printable = value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+    line.textContent = key + ': ' + (printable ? String(value) : stringify(value));
+    wrap.appendChild(line);
+  });
+  return wrap;
+}
+
 function generationBlock(gen) {
   var card = el('section', { class: 'card stack' });
   card.appendChild(el('h2', null, 'Generation'));
@@ -1646,8 +1735,13 @@ function generationBlock(gen) {
     return card;
   }
   card.appendChild(kv([
-    ['Generator', looseText(gen.generator)],
-    ['Seed', looseText(gen.seed)]
+    ['Generator', formatGenerator(gen)],
+    ['Version', looseText(gen.version)],
+    ['Seed', looseText(gen.seed != null ? gen.seed : gen.datasetSeed)],
+    ['Case seed', looseText(gen.caseSeed)],
+    ['Dataset version', looseText(gen.datasetVersion)],
+    ['Synthetic', formatBool(gen.synthetic)],
+    ['Label', looseText(gen.label)]
   ]));
   card.appendChild(el('h3', null, 'Notes'));
   card.appendChild(notesNode(gen.notes));
@@ -1662,7 +1756,10 @@ function casePanel(caseData, dataset) {
   var title = el('h2', { class: 'case-title' });
   title.textContent = caseData.title ? String(caseData.title) : 'Case';
   wrap.appendChild(title);
-  if (caseData.synthetic) wrap.appendChild(syntheticBanner(dataset && dataset.label));
+  if (caseData.synthetic) {
+    var caseLabel = dataset && dataset.label ? dataset.label : (caseData.generation && caseData.generation.label);
+    wrap.appendChild(syntheticBanner(caseLabel));
+  }
   else {
     var flags = el('div', { class: 'flags' });
     flags.appendChild(externalBadge());
@@ -1683,6 +1780,7 @@ function casePanel(caseData, dataset) {
   wrap.appendChild(panelBlock('Prompt', richValue(caseData.prompt)));
   wrap.appendChild(panelBlock('Input', richValue(caseData.input)));
   wrap.appendChild(panelBlock('Visible context', richValue(caseData.visibleContext)));
+  wrap.appendChild(panelBlock('Hidden context', richValue(caseData.hiddenContext)));
   wrap.appendChild(panelBlock('Expected output', jsonPre(caseData.expectedOutput)));
   wrap.appendChild(panelBlock('Criteria', richValue(caseData.criteria)));
   wrap.appendChild(panelBlock('Faults', richValue(caseData.faults)));
@@ -1742,7 +1840,7 @@ function datasetBody(data, requestedPath, ctx) {
     ['Origin', textOrNa(data.origin)],
     ['Seed', textOrNa(data.seed)],
     ['Count', formatCount(data.count)],
-    ['Generator', looseText(data.generator)]
+    ['Generator', formatGenerator(data.generator)]
   ]));
   if (data.notes != null) wrap.appendChild(panelBlock('Notes', notesNode(data.notes)));
 

@@ -810,7 +810,7 @@ h2.case-title {
 
   .nav {
     flex-direction: row;
-    overflow-x: auto;
+    flex-wrap: wrap;
   }
 
   .nav button {
