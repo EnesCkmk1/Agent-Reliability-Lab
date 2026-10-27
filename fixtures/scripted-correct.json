@@ -1,0 +1,5 @@
+{
+  "name": "correct",
+  "defaultBehavior": "correct",
+  "latencyMs": 0
+}

@@ -1,0 +1,10 @@
+{
+  "faults": [
+    {
+      "id": "run-drop-email",
+      "target": "input",
+      "kind": "incomplete_input",
+      "params": { "field": "email" }
+    }
+  ]
+}
